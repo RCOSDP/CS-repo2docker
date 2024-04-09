@@ -1,4 +1,0 @@
-dependencies:
-  - pytest
-  - r-base
-  - r-digest
