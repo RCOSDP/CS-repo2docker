@@ -1,8 +1,8 @@
 # MATLAB (mpm)の設定 / Configuration of MATLAB (mpm)
 
-MATLAB (mpm) では、インストールしたい環境やアドオンを自由に指定することができます。以下の項目が設定可能です。
+MATLAB (mpm) セクションでは、インストールしたいMATLABバージョンとアドオンを指定することで、MATLABのインストールを指示することができます。以下の項目が設定可能です。
 
-In MATLAB (mpm), you can freely specify the environment and addons you want to install. The following items can be configured.
+In MATLAB (mpm) section, you can specify the MATLAB release and add-ons you want to install. The following items can be configured.
 
 # リリース / Release
 
