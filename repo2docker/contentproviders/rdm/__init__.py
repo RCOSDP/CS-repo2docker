@@ -55,6 +55,16 @@ class RDM(ContentProvider):
 
     def detect(self, source, ref=None, extra_args=None):
         """Trigger this provider for directory on RDM"""
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(
+                self.detect_async(source, ref=ref, extra_args=extra_args)
+            )
+        finally:
+            loop.close()
+
+    async def detect_async(self, source, ref=None, extra_args=None):
+        """Async variant of detect for callers already running in an event loop."""
         for host in self.hosts:
             if any([source.startswith(s) for s in host["hostname"]]):
                 u = RDMURL(source)
@@ -63,21 +73,12 @@ class RDM(ContentProvider):
                 if self._check_ref_defined(ref):
                     self.uuid = ref
                 else:
-                    # Calculate the hash of the .binder directory asynchronously
-                    loop = asyncio.new_event_loop()
-                    queue = asyncio.Queue()
-                    loop.create_task(self._calculate_hash_with_error(host, queue))
-                    try:
-                        result = loop.run_until_complete(queue.get())
-                        if isinstance(result, BaseException):
-                            raise result
-                        if result is None:
-                            # No .binder directory found, generate a random UUID
-                            self.uuid = str(uuid.uuid1())
-                        else:
-                            self.uuid = result
-                    finally:
-                        loop.close()
+                    hash_value = await self._calculate_hash(host)
+                    if hash_value is None:
+                        # No .binder directory found, generate a random UUID
+                        self.uuid = str(uuid.uuid1())
+                    else:
+                        self.uuid = hash_value
                 logger.debug(
                     "Detected RDM project: {}, path: {}, host: {}, uuid: {}".format(
                         self.project_id, self.path, host, self.uuid
@@ -122,16 +123,7 @@ class RDM(ContentProvider):
         finally:
             await queue.put(None)
 
-    async def _calculate_hash_with_error(self, host: Dict[str, Any], queue: asyncio.Queue):
-        try:
-            hash = await self._calculate_hash(host, queue)
-            await queue.put(hash)
-        except BaseException as e:
-            await queue.put(e)
-        finally:
-            await queue.put(None)
-
-    async def _calculate_hash(self, host: Dict[str, Any], queue: asyncio.Queue):
+    async def _calculate_hash(self, host: Dict[str, Any]):
         """Calculate the hash of the .binder directory asynchronously"""
         api_url = host["api"][:-1] if host["api"].endswith("/") else host["api"]
         osf = OSF(

@@ -71,11 +71,11 @@ def MockFolder(name, files=None, folders=None):
 
 def test_detect_rdm_url():
     rdm = RDM()
-    # Mock _calculate_hash_with_error to avoid network calls
-    async def mock_hash_calc(self, host, queue):
-        await queue.put("abc123-456-789")
+    # Mock _calculate_hash to avoid network calls
+    async def mock_hash(self, host):
+        return "abc123-456-789"
 
-    with patch.object(RDM, "_calculate_hash_with_error", new=mock_hash_calc):
+    with patch.object(RDM, "_calculate_hash", new=mock_hash):
         spec = rdm.detect("https://test.some.host.nii.ac.jp/x1234")
 
     assert spec is not None, spec
@@ -112,7 +112,7 @@ def test_detect_rdm_url():
     assert spec["host"]["api"] == "https://api.test.some.host.nii.ac.jp/v2/"
 
     rdm = RDM()
-    with patch.object(RDM, "_calculate_hash_with_error", new=mock_hash_calc):
+    with patch.object(RDM, "_calculate_hash", new=mock_hash):
         spec = rdm.detect("https://test.some.host.nii.ac.jp/x1234/files/test", "HEAD")
 
     assert spec is not None, spec
@@ -120,6 +120,43 @@ def test_detect_rdm_url():
     assert spec["path"] == "test"
     assert re.match(r"^[0-9A-Fa-f\-]+$", spec["uuid"]) is not None
     assert spec["host"]["api"] == "https://api.test.some.host.nii.ac.jp/v2/"
+
+
+@pytest.mark.asyncio
+async def test_detect_async_rdm_url():
+    rdm = RDM()
+
+    async def mock_hash(self, host):
+        return "async-hash-123"
+
+    with patch.object(RDM, "_calculate_hash", new=mock_hash):
+        spec = await rdm.detect_async("https://test.some.host.nii.ac.jp/x1234")
+
+    assert spec is not None, spec
+    assert spec["project_id"] == "x1234"
+    assert spec["path"] == ""
+    assert spec["uuid"] == "async-hash-123"
+    assert spec["host"]["api"] == "https://api.test.some.host.nii.ac.jp/v2/"
+
+
+def test_detect_uses_detect_async():
+    rdm = RDM()
+
+    async_return = {
+        "project_id": "x1234",
+        "path": "",
+        "host": {
+            "hostname": ["https://test.some.host.nii.ac.jp/"],
+            "api": "https://api.test.some.host.nii.ac.jp/v2/",
+        },
+        "uuid": "abc",
+    }
+
+    with patch.object(RDM, "detect_async", new=AsyncMock(return_value=async_return)) as mock_async:
+        spec = rdm.detect("https://test.some.host.nii.ac.jp/x1234")
+
+    assert spec["uuid"] == "abc"
+    assert mock_async.await_count == 1
 
 
 def test_not_detect_rdm_url():
@@ -130,9 +167,9 @@ def test_not_detect_rdm_url():
 
 
 def test_detect_external_rdm_url():
-    # Mock _calculate_hash_with_error to avoid network calls
-    async def mock_hash_calc(self, host, queue):
-        await queue.put("external-hash-123")
+    # Mock _calculate_hash to avoid network calls
+    async def mock_hash(self, host):
+        return "external-hash-123"
 
     with NamedTemporaryFile("w+") as f:
         try:
@@ -152,7 +189,7 @@ def test_detect_external_rdm_url():
             os.environ["RDM_HOSTS"] = f.name
 
             rdm = RDM()
-            with patch.object(RDM, "_calculate_hash_with_error", new=mock_hash_calc):
+            with patch.object(RDM, "_calculate_hash", new=mock_hash):
                 spec = rdm.detect("https://test1.some.host.nii.ac.jp/x1234")
 
             assert spec is not None, spec
@@ -182,14 +219,15 @@ def test_detect_external_rdm_url():
 
 
 def test_content_id_is_unique():
-    # Mock _calculate_hash_with_error to avoid network calls
+    # Mock _calculate_hash to avoid network calls
     # Use a counter to generate different hashes each time
     counter = [0]
-    async def mock_hash_calc(self, host, queue):
-        counter[0] += 1
-        await queue.put(f"unique-hash-{counter[0]}")
 
-    with patch.object(RDM, "_calculate_hash_with_error", new=mock_hash_calc):
+    async def mock_hash(self, host):
+        counter[0] += 1
+        return f"unique-hash-{counter[0]}"
+
+    with patch.object(RDM, "_calculate_hash", new=mock_hash):
         rdm1 = RDM()
         rdm1.detect("https://test.some.host.nii.ac.jp/x1234")
         rdm2 = RDM()
@@ -203,29 +241,16 @@ def test_content_id_is_unique():
         assert rdm1.content_id != rdm2.content_id
 
 
-def test_calculate_hash_with_error_propagates_exception():
+@pytest.mark.asyncio
+async def test_detect_async_propagates_exception():
     rdm = RDM()
 
-    async def failing_hash(self, host, queue):
+    async def failing_hash(self, host):
         raise RuntimeError("hash failure")
 
-    async def runner():
-        queue = asyncio.Queue()
-        with patch.object(RDM, "_calculate_hash", new=failing_hash):
-            await rdm._calculate_hash_with_error(
-                {"api": "https://api.test.some.host.nii.ac.jp/v2/"},
-                queue,
-            )
-        results = []
-        while not queue.empty():
-            results.append(await queue.get())
-        return results
-
-    results = asyncio.run(runner())
-
-    assert isinstance(results[0], RuntimeError)
-    assert str(results[0]) == "hash failure"
-    assert results[1] is None
+    with patch.object(RDM, "_calculate_hash", new=failing_hash):
+        with pytest.raises(RuntimeError, match="hash failure"):
+            await rdm.detect_async("https://test.some.host.nii.ac.jp/x1234")
 
 
 def test_provisioner_resolve_source_missing_storage():
@@ -364,7 +389,6 @@ def test_fetch_content():
                     assert False, msg
             assert fetches == 1, fetches
             fake_storage.assert_called_once_with("samplestorage1")
-
 
 def test_fetch_with_paths_yaml_generates_correct_provision_script():
     """Test that paths.yaml configuration generates correct provision.sh script"""
