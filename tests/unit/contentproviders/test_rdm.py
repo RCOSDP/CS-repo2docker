@@ -535,6 +535,77 @@ def test_fetch_with_binder_but_no_paths_yaml():
                 assert "ln -s" not in script_content
 
 
+def test_fetch_with_empty_paths_and_override():
+    """Test that override: true with empty paths results in no copies or links"""
+    with TemporaryDirectory() as d:
+        rdm = RDM()
+        spec = {
+            "project_id": "x1234",
+            "path": "osfstorage",
+            "host": {"api": "https://test.some.host/v2/"},
+        }
+
+        with patch.object(OSF, "project") as fake_project:
+            fake_paths_yaml = MockFile("/binder/paths.yaml")
+            fake_binder_folder = MockFolder("/binder/", files=[fake_paths_yaml], folders=[])
+
+            fake_storage = MagicMock(
+                name="osfstorage",
+                folders=AsyncIterator([fake_binder_folder]),
+                files=AsyncIterator([])
+            )
+            fake_storage.name = "osfstorage"
+
+            async def mock_storage(name):
+                return fake_storage
+
+            fake_project_obj = MagicMock(storages=AsyncIterator([fake_storage]))
+            fake_project_obj.storage = mock_storage
+            fake_project.return_value = fake_project_obj
+
+            binder_dir = os.path.join(d, "binder")
+            os.makedirs(binder_dir)
+            paths_yaml_content = {
+                "override": True,
+                "paths": []
+            }
+            yaml = YAML(typ='safe', pure=True)
+            with open(os.path.join(binder_dir, "paths.yaml"), "w") as f:
+                yaml.dump(paths_yaml_content, f)
+
+            # Mock Provisioner._resolve_source to avoid storage validation
+            from repo2docker.contentproviders.rdm.provisioner import Provisioner
+
+            async def mock_resolve_source(self, path_mapping):
+                mock_obj = MagicMock()
+                mock_obj.path = "/"
+                return mock_obj
+
+            with patch.object(Provisioner, "_resolve_source", new=mock_resolve_source):
+                messages = []
+                for msg in rdm.fetch(spec, d):
+                    messages.append(msg)
+
+                # Check that provision.sh was created
+                provision_script_path = os.path.join(binder_dir, "provision.sh")
+                assert os.path.exists(provision_script_path), "provision.sh should be created"
+
+                with open(provision_script_path, 'r') as f:
+                    script_content = f.read()
+
+                # Verify only shebang and set -xe are present, no copy or link commands
+                assert "#!/bin/bash" in script_content
+                assert "set -xe" in script_content
+                # Should not have any copy commands
+                assert "cp -fr" not in script_content
+                assert "cp " not in script_content
+                # Should not have any link commands
+                assert "ln -s" not in script_content
+                # The script should only have 2 lines
+                lines = [line for line in script_content.strip().split('\n') if line]
+                assert len(lines) == 2, f"Expected 2 lines, got {len(lines)}: {lines}"
+
+
 def test_rdmurl_project_id():
     """Test project ID extraction from URL"""
     from repo2docker.contentproviders.rdm.url import RDMURL
