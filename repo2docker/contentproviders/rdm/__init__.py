@@ -255,6 +255,7 @@ class RDM(ContentProvider):
         for binder_output_dir in binder_output_dirs:
             provisioner.save_provision_script(
                 os.path.join(binder_output_dir, "provision.sh"),
+                project.id,
                 mnt_rdm_dir,
             )
 

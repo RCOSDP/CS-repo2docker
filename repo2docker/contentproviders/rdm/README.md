@@ -55,3 +55,143 @@ paths:
       source: $default_storage_path
       target: .
 ```
+
+## Running provision.sh with JupyterHub
+
+When deploying repo2docker-built images with JupyterHub, you can automatically execute the `provision.sh` script at container startup to provision RDM data.
+
+### Background Execution to Avoid Timeout
+
+Since copying large datasets may take time and cause JupyterHub spawn timeout, the `provision.sh` script supports background execution mode. When called with command-line arguments, it will:
+
+1. Start provisioning (copy/link operations) in the background
+2. Immediately execute the passed command (e.g., `jupyterhub-singleuser`)
+
+This allows the JupyterHub server to start while data provisioning continues in the background.
+
+### JupyterHub Configuration
+
+Configure your JupyterHub spawner to execute `provision.sh` if it exists:
+
+#### KubeSpawner Example
+
+```python
+# In jupyterhub_config.py
+c.KubeSpawner.cmd = [
+    'bash', '-c',
+    '''
+    set -e
+
+    # Find and execute provision.sh if it exists
+    for path in \
+        "${REPO_DIR}/binder/provision.sh" \
+        "${REPO_DIR}/.binder/provision.sh" \
+        "$HOME/binder/provision.sh" \
+        "$HOME/.binder/provision.sh"; do
+
+        if [ -f "$path" ]; then
+            echo "[provision-wrapper] Executing: $path" >&2
+            exec bash "$path" "$@"
+        fi
+    done
+
+    # No provision.sh found, start normally
+    exec "$@"
+    ''',
+    '--', 'jupyterhub-singleuser'
+]
+```
+
+#### DockerSpawner Example
+
+```python
+# In jupyterhub_config.py
+c.DockerSpawner.cmd = [
+    'bash', '-c',
+    '''
+    set -e
+    for path in \
+        "${REPO_DIR}/binder/provision.sh" \
+        "${REPO_DIR}/.binder/provision.sh" \
+        "$HOME/binder/provision.sh" \
+        "$HOME/.binder/provision.sh"; do
+        [ -f "$path" ] && exec bash "$path" "$@"
+    done
+    exec "$@"
+    ''',
+    '--', 'jupyterhub-singleuser'
+]
+```
+
+### How provision.sh Works
+
+The generated `provision.sh` script accepts command-line arguments and has the following structure:
+
+```bash
+#!/bin/bash
+set -e
+
+# Run provisioning in background
+{
+    # Copy and link operations
+    mkdir -p './target/path/'
+    cp -fr '/mnt/rdm/storage/data/'* './target/path/'
+    ln -s '/mnt/rdm/large-data/' './data'
+} &
+
+# Execute passed command if provided
+if [ $# -gt 0 ]; then
+    exec "$@"
+fi
+```
+
+### Volume Mounts
+
+Ensure that RDM storage is mounted at `/mnt/rdm/` in the container. Configure your spawner accordingly:
+
+```python
+# KubeSpawner example
+c.KubeSpawner.volumes = [
+    {
+        'name': 'rdm-storage',
+        'persistentVolumeClaim': {
+            'claimName': 'rdm-pvc'
+        }
+    }
+]
+
+c.KubeSpawner.volume_mounts = [
+    {
+        'name': 'rdm-storage',
+        'mountPath': '/mnt/rdm/'
+    }
+]
+```
+
+**Note**: If `/mnt/rdm/` does not exist but `/mnt/rdms/{project_id}/` is available, `provision.sh` will automatically create a symlink from `/mnt/rdm` to `/mnt/rdms/{project_id}` at startup.
+
+### Monitoring Provisioning Progress
+
+Users can check the provisioning progress from within the Jupyter environment:
+
+```bash
+# View the provisioning log in real-time
+tail -f /tmp/provision.log
+
+# Check if provisioning is complete
+grep "completed" /tmp/provision.log
+```
+
+The log file `/tmp/provision.log` contains:
+- Start and completion timestamps
+- Each copy/link operation with source and target paths
+- Detailed command output (from `set -x`)
+- Any errors that occur during provisioning
+
+### Notes
+
+- The `REPO_DIR` environment variable points to the repository directory (default: `/home/jovyan`)
+- Provisioning runs in the background, so large data copies won't block JupyterHub startup
+- Symbolic links are created immediately and are available right away
+- Check `/tmp/provision.log` for provisioning progress and errors
+- Container logs will show when provisioning starts and how to monitor it

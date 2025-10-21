@@ -416,6 +416,7 @@ def test_fetch_with_paths_yaml_generates_correct_provision_script():
 
             fake_project_obj = MagicMock(storages=AsyncIterator([fake_storage]))
             fake_project_obj.storage = mock_storage
+            fake_project_obj.id = "x1234"
             fake_project.return_value = fake_project_obj
 
             binder_dir = os.path.join(d, "binder")
@@ -469,9 +470,20 @@ def test_fetch_with_paths_yaml_generates_correct_provision_script():
 
                 # Verify script content
                 assert "#!/bin/bash" in script_content
-                assert "set -xe" in script_content
+                assert "set -e" in script_content
+                # Verify /mnt/rdm symlink creation with retry logic for project-specific directory
+                assert "if [ ! -e /mnt/rdm ]; then" in script_content
+                assert "PROJECT_DIR=/mnt/rdms/x1234" in script_content
+                assert "for i in 1 2 4; do" in script_content
+                assert 'ln -s "$PROJECT_DIR" /mnt/rdm' in script_content
+                assert "Waiting for $PROJECT_DIR to be available" in script_content
+                assert 'PROVISION_LOG="/tmp/provision.log"' in script_content
                 assert "cp -fr /mnt/rdm/osfstorage/data/* ./dataset/" in script_content
                 assert "ln -s /mnt/rdm/external_storage/large_files ./external" in script_content
+                # Verify background execution and command passing
+                assert "} > \"${PROVISION_LOG}\" 2>&1 &" in script_content
+                assert 'if [ $# -gt 0 ]; then' in script_content
+                assert 'exec "$@"' in script_content
 
 
 def test_fetch_with_binder_but_no_paths_yaml():
@@ -501,6 +513,7 @@ def test_fetch_with_binder_but_no_paths_yaml():
 
             fake_project_obj = MagicMock(storages=AsyncIterator([fake_storage]))
             fake_project_obj.storage = mock_storage
+            fake_project_obj.id = "x1234"
             fake_project.return_value = fake_project_obj
 
             # Mock Provisioner._resolve_source to avoid storage validation
@@ -529,10 +542,14 @@ def test_fetch_with_binder_but_no_paths_yaml():
 
                 # Verify default mapping is added (copy entire storage to current directory)
                 assert "#!/bin/bash" in script_content
-                assert "set -xe" in script_content
+                assert "set -e" in script_content
+                # Verify /mnt/rdm symlink creation with retry logic
+                assert "PROJECT_DIR=/mnt/rdms/x1234" in script_content
+                assert 'ln -s "$PROJECT_DIR" /mnt/rdm' in script_content
                 assert "cp -fr /mnt/rdm/osfstorage/* ." in script_content
-                # Should not have any link commands
-                assert "ln -s" not in script_content
+                # Should not have any user-defined link commands in the background block
+                # (only the /mnt/rdm setup link should exist)
+                assert script_content.count("ln -s") == 1
 
 
 def test_fetch_with_empty_paths_and_override():
@@ -561,6 +578,7 @@ def test_fetch_with_empty_paths_and_override():
 
             fake_project_obj = MagicMock(storages=AsyncIterator([fake_storage]))
             fake_project_obj.storage = mock_storage
+            fake_project_obj.id = "x1234"
             fake_project.return_value = fake_project_obj
 
             binder_dir = os.path.join(d, "binder")
@@ -593,17 +611,21 @@ def test_fetch_with_empty_paths_and_override():
                 with open(provision_script_path, 'r') as f:
                     script_content = f.read()
 
-                # Verify only shebang and set -xe are present, no copy or link commands
+                # Verify script structure without user-defined copy or link commands
                 assert "#!/bin/bash" in script_content
-                assert "set -xe" in script_content
+                assert "set -e" in script_content
+                # Verify /mnt/rdm symlink creation with retry logic
+                assert "PROJECT_DIR=/mnt/rdms/x1234" in script_content
+                assert 'ln -s "$PROJECT_DIR" /mnt/rdm' in script_content
                 # Should not have any copy commands
                 assert "cp -fr" not in script_content
                 assert "cp " not in script_content
-                # Should not have any link commands
-                assert "ln -s" not in script_content
-                # The script should only have 2 lines
-                lines = [line for line in script_content.strip().split('\n') if line]
-                assert len(lines) == 2, f"Expected 2 lines, got {len(lines)}: {lines}"
+                # Should not have any user-defined link commands
+                # (only the /mnt/rdm setup link should exist)
+                assert script_content.count("ln -s") == 1
+                # But should have background execution structure
+                assert 'PROVISION_LOG="/tmp/provision.log"' in script_content
+                assert "} > \"${PROVISION_LOG}\" 2>&1 &" in script_content
 
 
 def test_rdmurl_project_id():
