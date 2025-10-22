@@ -145,30 +145,7 @@ if [ $# -gt 0 ]; then
 fi
 ```
 
-### Volume Mounts
-
-Ensure that RDM storage is mounted at `/mnt/rdm/` in the container. Configure your spawner accordingly:
-
-```python
-# KubeSpawner example
-c.KubeSpawner.volumes = [
-    {
-        'name': 'rdm-storage',
-        'persistentVolumeClaim': {
-            'claimName': 'rdm-pvc'
-        }
-    }
-]
-
-c.KubeSpawner.volume_mounts = [
-    {
-        'name': 'rdm-storage',
-        'mountPath': '/mnt/rdm/'
-    }
-]
-```
-
-**Note**: If `/mnt/rdm/` does not exist but `/mnt/rdms/{project_id}/` is available, `provision.sh` will automatically create a symlink from `/mnt/rdm` to `/mnt/rdms/{project_id}` at startup.
+**Note**: If `/mnt/rdm/` does not exist but `/mnt/rdms/{project_id}/` is available, the build process or provisioning process will automatically create a symlink from `/mnt/rdm` to `/mnt/rdms/{project_id}`.
 
 ### Monitoring Provisioning Progress
 
