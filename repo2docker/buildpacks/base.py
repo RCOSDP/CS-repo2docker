@@ -750,7 +750,11 @@ class BaseImage(BuildPack):
     @lru_cache()
     def get_assemble_scripts(self):
         """Return directives to run after the entire repository has been added to the image"""
-        return []
+        scripts = []
+        prepare_mnt = self.binder_path("prepare_mnt.sh")
+        if os.path.exists(prepare_mnt):
+            scripts.append(("root", f"bash {prepare_mnt}"))
+        return scripts
 
     @lru_cache()
     def get_post_build_scripts(self):
