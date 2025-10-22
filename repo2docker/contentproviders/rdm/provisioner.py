@@ -128,6 +128,17 @@ class Provisioner:
             f.write("    exec \"$@\"\n")
             f.write("fi\n")
 
+    def save_prepare_mnt_script(self, script_path: str, project_id: str):
+        """Save the prepare_mnt script to the specified path."""
+        with open(script_path, "w") as f:
+            f.write("#!/bin/bash\n")
+            f.write("set -e\n\n")
+            f.write("# Ensure /mnt/rdm exists or create symlink to project-specific directory\n")
+            f.write("if [ ! -e /mnt/rdm ]; then\n")
+            f.write(f"    PROJECT_DIR=/mnt/rdms/{shlex.quote(project_id)}\n")
+            f.write(f"    ln -s \"$PROJECT_DIR\" /mnt/rdm\n")
+            f.write("fi\n")
+
     async def _resolve_source(self, path_mapping: PathMapping):
         """Validate the path mapping."""
         source = path_mapping.get_source(self._default_storage_path)

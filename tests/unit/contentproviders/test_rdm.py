@@ -485,6 +485,20 @@ def test_fetch_with_paths_yaml_generates_correct_provision_script():
                 assert 'if [ $# -gt 0 ]; then' in script_content
                 assert 'exec "$@"' in script_content
 
+                # Check that prepare_mnt.sh was created
+                prepare_mnt_script_path = os.path.join(binder_dir, "prepare_mnt.sh")
+                assert os.path.exists(prepare_mnt_script_path), "prepare_mnt.sh should be created"
+
+                with open(prepare_mnt_script_path, 'r') as f:
+                    prepare_mnt_content = f.read()
+
+                # Verify prepare_mnt.sh content
+                assert "#!/bin/bash" in prepare_mnt_content
+                assert "set -e" in prepare_mnt_content
+                assert "if [ ! -e /mnt/rdm ]; then" in prepare_mnt_content
+                assert "PROJECT_DIR=/mnt/rdms/x1234" in prepare_mnt_content
+                assert 'ln -s "$PROJECT_DIR" /mnt/rdm' in prepare_mnt_content
+
 
 def test_fetch_with_binder_but_no_paths_yaml():
     """Test that when binder folder exists but no paths.yaml, uses default behavior"""

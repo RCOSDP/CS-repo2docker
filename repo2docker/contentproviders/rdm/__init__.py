@@ -193,7 +193,6 @@ class RDM(ContentProvider):
         storage: Union[Storage, Folder],
         output_dir: str,
         local_dir: Optional[str],
-        mnt_rdm_dir: Optional[str] = "/mnt/rdm/",
     ):
         binder_folders = []
         non_binder_folders = []
@@ -256,7 +255,10 @@ class RDM(ContentProvider):
             provisioner.save_provision_script(
                 os.path.join(binder_output_dir, "provision.sh"),
                 project.id,
-                mnt_rdm_dir,
+            )
+            provisioner.save_prepare_mnt_script(
+                os.path.join(binder_output_dir, "prepare_mnt.sh"),
+                project.id,
             )
 
     async def _fetch_all(
