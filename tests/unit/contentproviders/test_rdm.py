@@ -470,10 +470,13 @@ def test_fetch_with_paths_yaml_generates_correct_provision_script():
 
                 # Verify script content
                 assert "#!/bin/bash" in script_content
-                assert "set -e" in script_content
+                assert "set -xe" in script_content
+                # Verify project_id extraction from BINDER_REPO_URL
+                assert '_path="${BINDER_REPO_URL#*://}"' in script_content
+                assert 'PROJECT_ID="${_path%%/*}"' in script_content
                 # Verify /mnt/rdm symlink creation with retry logic for project-specific directory
                 assert "if [ ! -e /mnt/rdm ]; then" in script_content
-                assert "PROJECT_DIR=/mnt/rdms/x1234" in script_content
+                assert "PROJECT_DIR=/mnt/rdms/$PROJECT_ID" in script_content
                 assert "for i in 1 2 4; do" in script_content
                 assert 'ln -s "$PROJECT_DIR" /mnt/rdm' in script_content
                 assert "Waiting for $PROJECT_DIR to be available" in script_content
@@ -494,9 +497,12 @@ def test_fetch_with_paths_yaml_generates_correct_provision_script():
 
                 # Verify prepare_mnt.sh content
                 assert "#!/bin/bash" in prepare_mnt_content
-                assert "set -e" in prepare_mnt_content
+                assert "set -xe" in prepare_mnt_content
+                # Verify project_id extraction from BINDER_REPO_URL
+                assert '_path="${BINDER_REPO_URL#*://}"' in prepare_mnt_content
+                assert 'PROJECT_ID="${_path%%/*}"' in prepare_mnt_content
                 assert "if [ ! -e /mnt/rdm ]; then" in prepare_mnt_content
-                assert "PROJECT_DIR=/mnt/rdms/x1234" in prepare_mnt_content
+                assert "PROJECT_DIR=/mnt/rdms/$PROJECT_ID" in prepare_mnt_content
                 assert 'ln -s "$PROJECT_DIR" /mnt/rdm' in prepare_mnt_content
 
 
@@ -556,9 +562,12 @@ def test_fetch_with_binder_but_no_paths_yaml():
 
                 # Verify default mapping is added (copy entire storage to current directory)
                 assert "#!/bin/bash" in script_content
-                assert "set -e" in script_content
+                assert "set -xe" in script_content
+                # Verify project_id extraction from BINDER_REPO_URL
+                assert '_path="${BINDER_REPO_URL#*://}"' in script_content
+                assert 'PROJECT_ID="${_path%%/*}"' in script_content
                 # Verify /mnt/rdm symlink creation with retry logic
-                assert "PROJECT_DIR=/mnt/rdms/x1234" in script_content
+                assert "PROJECT_DIR=/mnt/rdms/$PROJECT_ID" in script_content
                 assert 'ln -s "$PROJECT_DIR" /mnt/rdm' in script_content
                 assert "cp -fr /mnt/rdm/osfstorage/* ." in script_content
                 # Should not have any user-defined link commands in the background block
@@ -627,9 +636,12 @@ def test_fetch_with_empty_paths_and_override():
 
                 # Verify script structure without user-defined copy or link commands
                 assert "#!/bin/bash" in script_content
-                assert "set -e" in script_content
+                assert "set -xe" in script_content
+                # Verify project_id extraction from BINDER_REPO_URL
+                assert '_path="${BINDER_REPO_URL#*://}"' in script_content
+                assert 'PROJECT_ID="${_path%%/*}"' in script_content
                 # Verify /mnt/rdm symlink creation with retry logic
-                assert "PROJECT_DIR=/mnt/rdms/x1234" in script_content
+                assert "PROJECT_DIR=/mnt/rdms/$PROJECT_ID" in script_content
                 assert 'ln -s "$PROJECT_DIR" /mnt/rdm' in script_content
                 # Should not have any copy commands
                 assert "cp -fr" not in script_content

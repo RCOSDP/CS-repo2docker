@@ -57,15 +57,19 @@ class Provisioner:
         source = await self._resolve_source(path_mapping)
         self._link_mappings.append((path_mapping, source))
 
-    def save_provision_script(self, script_path: str, project_id: str, source_mount_dir='/mnt/rdm/'):
+    def save_provision_script(self, script_path: str, source_mount_dir='/mnt/rdm/'):
         """Save the provision script to the specified path."""
         with open(script_path, "w") as f:
             f.write("#!/bin/bash\n")
-            f.write("set -e\n\n")
+            f.write("set -xe\n\n")
             f.write("PROVISION_LOG=\"/tmp/provision.log\"\n\n")
+            f.write("# Extract project_id from BINDER_REPO_URL\n")
+            f.write("_path=\"${BINDER_REPO_URL#*://}\"\n")
+            f.write("_path=\"${_path#*/}\"\n")
+            f.write("PROJECT_ID=\"${_path%%/*}\"\n\n")
             f.write("# Ensure /mnt/rdm exists or create symlink to project-specific directory\n")
             f.write("if [ ! -e /mnt/rdm ]; then\n")
-            f.write(f"    PROJECT_DIR=/mnt/rdms/{shlex.quote(project_id)}\n")
+            f.write("    PROJECT_DIR=/mnt/rdms/$PROJECT_ID\n")
             f.write("    for i in 1 2 4; do\n")
             f.write("        if [ -d \"$PROJECT_DIR\" ]; then\n")
             f.write("            ln -s \"$PROJECT_DIR\" /mnt/rdm 2>> \"$PROVISION_LOG\" || echo \"[provision] Warning: Failed to create symlink /mnt/rdm\" >&2\n")
@@ -128,15 +132,19 @@ class Provisioner:
             f.write("    exec \"$@\"\n")
             f.write("fi\n")
 
-    def save_prepare_mnt_script(self, script_path: str, project_id: str):
+    def save_prepare_mnt_script(self, script_path: str):
         """Save the prepare_mnt script to the specified path."""
         with open(script_path, "w") as f:
             f.write("#!/bin/bash\n")
-            f.write("set -e\n\n")
+            f.write("set -xe\n\n")
+            f.write("# Extract project_id from BINDER_REPO_URL\n")
+            f.write("_path=\"${BINDER_REPO_URL#*://}\"\n")
+            f.write("_path=\"${_path#*/}\"\n")
+            f.write("PROJECT_ID=\"${_path%%/*}\"\n\n")
             f.write("# Ensure /mnt/rdm exists or create symlink to project-specific directory\n")
             f.write("if [ ! -e /mnt/rdm ]; then\n")
-            f.write(f"    PROJECT_DIR=/mnt/rdms/{shlex.quote(project_id)}\n")
-            f.write(f"    ln -s \"$PROJECT_DIR\" /mnt/rdm\n")
+            f.write("    PROJECT_DIR=/mnt/rdms/$PROJECT_ID\n")
+            f.write("    ln -s \"$PROJECT_DIR\" /mnt/rdm\n")
             f.write("fi\n")
 
     async def _resolve_source(self, path_mapping: PathMapping):
