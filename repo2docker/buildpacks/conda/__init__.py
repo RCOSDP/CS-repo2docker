@@ -595,8 +595,9 @@ rm -fr ~/.yarn/berry/cache
         )
 
         if post:
-            install_grdm = 'if(\\"devtools\\" %in% rownames(installed.packages())) ' \
-                + 'devtools::install_github(\\"RCOSDP/CS-rstudio-grdm\\", type = \\"source\\")'
+            install_grdm = 'options(repos = c(CRAN = \\"https://cloud.r-project.org/\\")); ' \
+                + 'if (!(\\"remotes\\" %in% rownames(installed.packages()))) install.packages(\\"remotes\\"); ' \
+                + 'remotes::install_github(\\"RCOSDP/CS-rstudio-grdm\\", type = \\"source\\")'
             bash_scripts = f"""
 if [ -x \\"$(command -v R)\\" ]; then R -e '{install_grdm}'; fi
 """
