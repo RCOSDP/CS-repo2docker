@@ -1,4 +1,5 @@
 """BuildPack for conda environments"""
+
 import os
 import re
 import warnings
@@ -13,10 +14,10 @@ from ...utils import is_local_pip_requirement
 from .._r_base import rstudio_base_scripts
 from ..base import BaseImage
 from .matlab import (
-    matlab_requirements_scripts,
     matlab_installation_scripts,
-    matlab_python_engine_installation_scripts,
     matlab_proxy_installation_scripts,
+    matlab_python_engine_installation_scripts,
+    matlab_requirements_scripts,
 )
 
 # pattern for parsing conda dependency line
@@ -483,7 +484,7 @@ class CondaBuildPack(BaseImage):
         installR_path = self.binder_path("install.R")
         if not os.path.exists(installR_path):
             return []
-        repo_url = 'https://cloud.r-project.org/'
+        repo_url = "https://cloud.r-project.org/"
         return [
             (
                 "${NB_USER}",
@@ -512,8 +513,12 @@ class CondaBuildPack(BaseImage):
             raise ValueError("mpm.yml must contain a 'release' field")
         scripts = matlab_requirements_scripts(config["release"], self.base_image)
         matlab_dir = "/opt/matlab"
-        scripts += matlab_installation_scripts(config["release"], config.get("products", []), matlab_dir)
-        scripts += matlab_python_engine_installation_scripts(config["release"], matlab_dir)
+        scripts += matlab_installation_scripts(
+            config["release"], config.get("products", []), matlab_dir
+        )
+        scripts += matlab_python_engine_installation_scripts(
+            config["release"], matlab_dir
+        )
         scripts += matlab_proxy_installation_scripts()
         return scripts
 
@@ -524,18 +529,23 @@ class CondaBuildPack(BaseImage):
         return [("MW_CONTEXT_TAGS", "MATLAB_PROXY:JUPYTER:MPM:V1")]
 
     def _get_jlab_extension_script(
-        self, grdm_jlab_release_tag, grdm_jlab_filename_body, jupyter_resource_usage_tag,
+        self,
+        grdm_jlab_release_tag,
+        grdm_jlab_filename_body,
+        jupyter_resource_usage_tag,
         perform_labextension_install=True,
         perform_nbextension_install=True,
         perform_jlpm_cache_clean=True,
         perform_npm_cache_clean=True,
     ):
-        grdm_jlab_release_url = (
-            f"https://github.com/RCOSDP/CS-jupyterlab-grdm/releases/download/{grdm_jlab_release_tag}"
+        grdm_jlab_release_url = f"https://github.com/RCOSDP/CS-jupyterlab-grdm/releases/download/{grdm_jlab_release_tag}"
+        jupyter_resource_usage_release_url = (
+            "https://github.com/RCOSDP/CS-jupyter-resource-usage"
         )
-        jupyter_resource_usage_release_url = "https://github.com/RCOSDP/CS-jupyter-resource-usage"
         grdm_jlab_filename_tar_gz = f"{grdm_jlab_filename_body}.tar.gz"
-        grdm_jlab_filename_tgz = "{}.tgz".format(grdm_jlab_filename_body.replace("_", "-"))
+        grdm_jlab_filename_tgz = "{}.tgz".format(
+            grdm_jlab_filename_body.replace("_", "-")
+        )
         jlpm_cache_clean = ""
         if perform_jlpm_cache_clean:
             jlpm_cache_clean = "jlpm cache clean"
@@ -578,16 +588,24 @@ rm -fr ~/.yarn/berry/cache
 
     def get_custom_extension_script(self, post):
         grdm_jlab3_release_tag = "0.2.0"
-        grdm_jlab3_filename_body = f"rdm_binderhub_jlabextension-refs.tags.{grdm_jlab3_release_tag}"
+        grdm_jlab3_filename_body = (
+            f"rdm_binderhub_jlabextension-refs.tags.{grdm_jlab3_release_tag}"
+        )
 
         grdm_jlab4_release_tag = "0.3.0"
-        grdm_jlab4_filename_body = f"rdm_binderhub_jlabextension-{grdm_jlab4_release_tag}"
+        grdm_jlab4_filename_body = (
+            f"rdm_binderhub_jlabextension-{grdm_jlab4_release_tag}"
+        )
 
         jlab3_ext_script = self._get_jlab_extension_script(
-            grdm_jlab3_release_tag, grdm_jlab3_filename_body, 'v2023.07',
+            grdm_jlab3_release_tag,
+            grdm_jlab3_filename_body,
+            "v2023.07",
         )
         jlab4_ext_script = self._get_jlab_extension_script(
-            grdm_jlab4_release_tag, grdm_jlab4_filename_body, 'v2024.04',
+            grdm_jlab4_release_tag,
+            grdm_jlab4_filename_body,
+            "v2024.04",
             perform_labextension_install=False,
             perform_nbextension_install=False,
             perform_jlpm_cache_clean=False,
@@ -595,9 +613,14 @@ rm -fr ~/.yarn/berry/cache
         )
 
         if post:
-            install_grdm = 'options(repos = c(CRAN = \\"https://cloud.r-project.org/\\")); ' \
-                + 'if (!(\\"remotes\\" %in% rownames(installed.packages()))) install.packages(\\"remotes\\"); ' \
-                + 'remotes::install_github(\\"RCOSDP/CS-rstudio-grdm\\", type = \\"source\\")'
+            # install from the GitHub archive tarball; install_github queries
+            # api.github.com, which is rate-limited for unauthenticated builds
+            install_grdm = (
+                'options(repos = c(CRAN = \\"https://cloud.r-project.org/\\")); '
+                + 'if (!(\\"remotes\\" %in% rownames(installed.packages()))) install.packages(\\"remotes\\"); '
+                + 'remotes::install_url(\\"https://github.com/RCOSDP/CS-rstudio-grdm/archive/refs/heads/master.tar.gz\\"); '
+                + 'stopifnot(\\"rdmaddins\\" %in% rownames(installed.packages()))'
+            )
             bash_scripts = f"""
 if [ -x \\"$(command -v R)\\" ]; then R -e '{install_grdm}'; fi
 """
