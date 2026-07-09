@@ -63,7 +63,10 @@ you need to create a ``runtime.txt`` file with the following format:
 This will provide you R of given version (such as 4.1, 3.6, etc), and a CRAN snapshot
 to install libraries from on the given date. You can install more R packages from CRAN
 by adding a :ref:`install.R<install.R>` file to your repo. RStudio and IRKernel are
-installed by default for all R versions.
+installed by default for all R versions. The latest stable RStudio Server is
+installed at build time (for R older than 3.6, an older compatible RStudio is
+installed instead); you can pin a specific version with a
+:ref:`rstudio.yml<rstudio.yml>` file.
 
 `packagemanager.posit.co <https://packagemanager.posit.co/client/#/>`_
 will be used to provide much faster installations via `binary packages <https://www.rstudio.com/blog/package-manager-v1-1-no-interruptions/>`_.

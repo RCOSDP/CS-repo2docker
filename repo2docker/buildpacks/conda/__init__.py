@@ -12,6 +12,7 @@ from ruamel.yaml import YAML
 from ...semver import parse_version as V
 from ...utils import is_local_pip_requirement
 from .._r_base import rstudio_base_scripts
+from .._rstudio import load_rstudio_yaml
 from ..base import BaseImage
 from .matlab import (
     matlab_installation_scripts,
@@ -442,7 +443,9 @@ class CondaBuildPack(BaseImage):
                 raise RuntimeError(
                     f"RStudio is only available for linux/amd64 ({self.platform})"
                 )
-            scripts += rstudio_base_scripts(self.r_version)
+            scripts += rstudio_base_scripts(
+                self.r_version, load_rstudio_yaml(self.binder_path("rstudio.yml"))
+            )
             scripts += [
                 (
                     "root",
