@@ -49,7 +49,7 @@ setup(
     name="jupyter-repo2docker",
     version=versioneer.get_version(),
     install_requires=[
-        "chardet",
+        "charset-normalizer",
         "docker!=5.0.0",
         "entrypoints",
         "escapism",
