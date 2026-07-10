@@ -7,6 +7,7 @@ import requests
 
 from ..semver import parse_version as V
 from ._r_base import rstudio_base_scripts
+from ._rstudio import load_rstudio_yaml
 from .python import PythonBuildPack
 
 # Aproximately the first snapshot on RSPM (Posit package manager)
@@ -304,7 +305,9 @@ class RBuildPack(PythonBuildPack):
             ),
         ]
 
-        scripts += rstudio_base_scripts(self.r_version)
+        scripts += rstudio_base_scripts(
+            self.r_version, load_rstudio_yaml(self.binder_path("rstudio.yml"))
+        )
 
         scripts += [
             (

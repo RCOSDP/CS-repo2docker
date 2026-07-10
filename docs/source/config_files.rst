@@ -117,6 +117,32 @@ To set the date of the snapshot add a runtime.txt_.
 For an example ``install.R`` file, visit our `example install.R file <https://github.com/binder-examples/r/blob/HEAD/install.R>`_.
 
 
+.. _rstudio.yml:
+
+``rstudio.yml`` - Pin the RStudio Server version
+================================================
+
+Repositories with an R environment get RStudio Server installed. By
+default, the latest stable release published by Posit is installed at
+build time. To pin a specific version instead, add an ``rstudio.yml``:
+
+.. code-block:: yaml
+
+   version: 2023.12.1+402
+   sha256: 2ceeebe5d1d77068b36e85f7cf366cd1409f7642a80261b6bbeb3da945ef0888
+
+Available versions are listed on
+`Posit's previous versions page <https://docs.posit.co/previous-versions/rstudio/>`_.
+The ``.deb`` package is downloaded from Posit over HTTPS. ``sha256`` is
+optional; when given, the download is verified against it.
+
+.. note::
+
+   For R versions older than 3.6, which current RStudio releases no longer
+   support, an older compatible RStudio (2023.12.1) is installed by default
+   instead of the latest release.
+
+
 .. _apt.txt:
 
 ``apt.txt`` - Install packages with apt-get
