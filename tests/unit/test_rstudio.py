@@ -50,7 +50,7 @@ def clear_fetch_cache():
     fetch_latest_rstudio_server.cache_clear()
 
 
-@pytest.mark.parametrize("r_version", ["3.3.3", "3.5.3"])
+@pytest.mark.parametrize("r_version", ["3.3.3", "3.5.3", "3.5."])
 def test_legacy_rstudio_for_old_r(r_version):
     assert rstudio_server_installer(r_version, None) == (
         LEGACY_RSTUDIO_URL,
@@ -58,7 +58,7 @@ def test_legacy_rstudio_for_old_r(r_version):
     )
 
 
-@pytest.mark.parametrize("r_version", ["", "3.6", "4.2.1"])
+@pytest.mark.parametrize("r_version", ["", "3.6", "4.2.1", "4.4."])
 def test_latest_rstudio(r_version):
     with patch("repo2docker.buildpacks._rstudio.requests.get") as mock_get:
         mock_get.return_value.json.return_value = DOWNLOADS_JSON
