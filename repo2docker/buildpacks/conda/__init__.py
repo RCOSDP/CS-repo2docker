@@ -608,7 +608,7 @@ rm -fr ~/.yarn/berry/cache
         jlab4_ext_script = self._get_jlab_extension_script(
             grdm_jlab4_release_tag,
             grdm_jlab4_filename_body,
-            "v2024.04",
+            "2026.07.0",
             perform_labextension_install=False,
             perform_nbextension_install=False,
             perform_jlpm_cache_clean=False,
