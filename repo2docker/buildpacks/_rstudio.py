@@ -77,6 +77,11 @@ def load_rstudio_yaml(path):
         return YAML().load(f)
 
 
+def parse_r_version(r_version):
+    """Parse an R version pin; conda pins like "r-base=4.4.*" leave a trailing dot."""
+    return V(r_version.rstrip("."))
+
+
 def rstudio_server_installer(r_version, rstudio_config):
     """Return (url, sha256) of the RStudio Server .deb to install.
 
@@ -103,6 +108,6 @@ def rstudio_server_installer(r_version, rstudio_config):
                 f"does not exist: {url} returned {resp.status_code}"
             )
         return url, sha256
-    if r_version and V(r_version) < V(RSTUDIO_MIN_R_VERSION):
+    if r_version and parse_r_version(r_version) < V(RSTUDIO_MIN_R_VERSION):
         return LEGACY_RSTUDIO_URL, LEGACY_RSTUDIO_SHA256
     return fetch_latest_rstudio_server()
